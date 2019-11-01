@@ -1,0 +1,30 @@
+---
+# tasks file for role_docker_compose
+- block:
+  - name: download the current stable release of Docker Compose
+    shell: sudo curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+  - name: Apply executable permissions to the binary
+    file:
+      path: /usr/local/bin/docker-compose
+      mode: u+x
+
+  - name: create a symbolic link to /usr/bin or any other directory in your path
+    file:
+      src: /usr/local/bin/docker-compose
+      dest: /usr/bin/docker-compose
+      state: link
+
+  - name: get the docker-compose version
+    shell: docker-compose --version
+    register: docker_compose_version
+
+  - debug:
+      var: docker_compose_version
+
+  - name: check the docker-compose version
+    assert:
+      that:
+        - docker_compose_version.stdout in "docker-compose version 1.24.1, build 4667896b"
+
+  become: yes

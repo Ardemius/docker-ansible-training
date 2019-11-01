@@ -1,0 +1,7 @@
+---
+# install the ELK stack on Docker
+- hosts: localhost
+  become: yes
+  roles:
+    - role_docker
+    - role_docker_compose

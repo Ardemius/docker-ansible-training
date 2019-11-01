@@ -1,0 +1,18 @@
+---
+- hosts: wrk 
+  vars:
+    number_of_the_counting: 3
+
+  tasks:
+
+    - assert: { that: "ansible_os_family == 'RedHat'" }
+
+    - assert:
+        that:
+          - "'titi' in item.name"
+          - number_of_the_counting == 3
+      loop:
+        - { name: titi, size: 2 }
+        - { name: titi, size: 4 }
+
+    - assert: { that: "'truc' == 'truc'" }

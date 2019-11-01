@@ -1,0 +1,22 @@
+version: '3.3'
+services:
+  logstash:
+    image: logstash:5.5.2
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./logstash-simple.conf:/config/logstash-simple.conf
+      - ./log:/var/log:ro
+    command: ["logstash", "-f", "/config/logstash-simple.conf"]
+  elasticsearch:
+    image: elasticsearch:5.5.2
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - 9200:9200
+  kibana:
+    image: kibana:5.5.2
+    depends_on:
+      - elasticsearch
+    ports:
+      - 5601:5601

@@ -1,0 +1,332 @@
+= Formation Docker / Ansible
+Thomas SCHWENDER <https://github.com/ardemius[@ardemius]>
+// Handling GitHub admonition blocks icons
+ifndef::env-github[:icons: font]
+ifdef::env-github[]
+:status:
+:outfilesuffix: .adoc
+:caution-caption: :fire:
+:important-caption: :exclamation:
+:note-caption: :paperclip:
+:tip-caption: :bulb:
+:warning-caption: :warning:
+endif::[]
+:imagesdir: ./images
+:source-highlighter: highlightjs
+// Next 2 ones are to handle line breaks in some particular elements (list, footnotes, etc.)
+:lb: pass:[<br> +]
+:sb: pass:[<br>]
+// check https://github.com/Ardemius/personal-wiki/wiki/AsciiDoctor-tips for tips on table of content in GitHub
+:toc: macro
+:toclevels: 2
+// To turn off figure caption labels and numbers
+:figure-caption!:
+
+toc::[]
+
+== LUNDI : Docker
+
+=== Configuration et installation de la VM
+
+On va travailler avec VirtualBox afin d'installer une CentOS sur laquelle on fera tourner Docker et Ansible.
+
+Après l'installation de VirtualBox, on installe la CentOS.
+
+* User : thomas
+* mdp : thomas
+* compte root, mdp : admin
+
+Pour ajouter son compte juste créé comme "admin", éditer le fichier `/etc/sudoers`
+
+image::training_01.jpg[]
+
+`ip a` pour afficher la configuration réseau sur la VM
+
+image::training_02.jpg[]
+
+Nous allons ajouter dans la conf VirtualBox une nouvelle carte réseau, "réseau NAT" : _ficher > Paramètres > réseau > nouvelle carte_ +
+Nous allons ensuite modifier la conf de notre VM en sélection cette nouvelle carte comme carte 1, et configurer une 2e carte en bridge.
+
+On refait un `ip a`, et on doit avoir la 2e carte qui prend une adresse réseau via le système host (Windows), avec pour conséquence que notre VM va prendre le nom de notre machine Windows sur le réseau interne Softeam ("frpxxx").
+
+[TIP]
+====
+Si la 2e carte réseau ne récupère par d'adresse IP, il faut vérifier que le pont est bien fait sur la BONNE carte réseau (votre machine pouvant en posséder plusieurs)
+====
+
+.Rappel de quelques commandes utiles
+[NOTE]
+====
+* `Ctrl+d` : pour se deconnecter de la VM (logout de l'utilisateur connecté, équivalent d'un exit)
+* touche "host" de la VM (pour revenir sur Windows comme OS host) : touche Ctrl de droite
+* `passwd <user>` : pour changer son mdp
+* `su` : pour changer d'utilisateur
+* `sudo` : pour lancer des commandes comme root. +
+Nécessite d'avoir configuré son user comme pouvant utiliser sudo, nécessite d'éditer `/etc/sudoers`
+* `sudo su - toto` : permet de switcher sur le user toto, ET, *via le "-"*, de charger également les variables d'environnement de toto.
+====
+
+=== Installation de Docker
+
+WARNING: Doc Docker foireuse ! Prendre celle de la 17.09 (_https://docs.docker.com/v17.09/engine/installation/linux/docker-ee/centos/_ et *NON*  https://docs.docker.com/install/linux/docker-ee/centos/\#repo-install-and-upgrade) qui indique bien d'où vient le token `<DOCKER-EE-URL>`
+
+----
+# pour lister
+sudo yum repolist
+
+# pour lancer l'installation de Docker
+sudo yum install docker
+
+docker --version
+# Docker version 1.13.1, build 7f2769b/1.13.1 -> on voudrait une version plus récente
+
+# on commence par supprimer notre ancienne version
+sudo yum remove docker
+
+# suivre le doc du "set up the repository" pour yum : https://docs.docker.com/v17.09/engine/installation/linux/docker-ee/centos/
+
+# TROP de problème avec l'install de docker EE, on passe en Docker CE : https://docs.docker.com/install/linux/docker-ce/centos/
+
+# et on termine avec :
+# [thomas@frp02483 ~]$ docker --version
+# Docker version 19.03.2, build 6a30dfc
+
+# INSTALLATION COMPLETE !!!!
+----
+
+=== Persistance des données
+
+----
+sudo systemctl status docker
+
+# il faut démarrer le service
+sudo systemctl start docker
+
+# et pour que le service se lance dès le démarrage de la VM (l'activer dans systemd)
+sudo systemctl enable docker
+
+# pour récupérer les informations sur le Docker daemon
+sudo docker info
+----
+
+Pour checker le service Docker au niveau de systemd, vous pouvez utiliser : `/etc/systemd/system/multi-user.target.wants`
+
+image::training_03.jpg[]
+
+NOTE: Tous les fichiers de "plomberie" de Docker sont dans _/var/lib/docker_
+
+NOTE: Les couches en écriture des containers sont stockées dans le même répertoire que les volumes `/var/lib/docker`, mais dans le sous répertoire `/overlay2`
+
+[TIP]
+====
+Pour arrêter tous les containers qui tournent : +
+`sudo docker stop $(sudo docker ps -q)`
+
+Pour arrêter un "top" unix amélioré : `htop` +
+----
+# install un repo particulier de RedHat permettant d'installer htop
+sudo yum install epel-release
+sudo yum install htop
+----
+====
+
+== MARDI : Ansible
+
+Le langage de base dans lequel sont créés les modules d'Ansible est *Python*. +
+On peut utiliser d'autres langages, mais avec une complexité supplémentaire.
+
+Dans le fichier _/etc/ansible/hosts_, ajouter un groupe "wrk" pour la VM que l'on a cloné sur notre poste (pour avoir 2 VMs sur notre machine) :
+
+.contenu du fichier /etc/ansible/hosts
+----
+[wrk]
+10.75.29.13
+10.75.29.15
+----
+
+Appel de commandes "ad hoc" directement par la ligne de commande Ansible :
+
+----
+ansible <group> -m yum -a "name=ntp state=latest"
+----
+
+Le *state* est une option que l'on trouve très couramment dans les modules Ansible
+
+Exemple de playbook à tester :
+
+[source,shell]
+----
+- name: Ensure that docker is well installed
+  hosts: wrk
+  gather_facts: True
+  become: yes
+  tasks:
+    - name: Ensure that docker are well isntalled
+      yum:
+        name: docker-ce
+        enablerepo: docker-ce-stable
+        state: present
+    - name: Ensure that docker are well started
+      service:
+        name: docker
+        state: started
+----
+
+NOTE: une "task" correspond à l'instanciation d'un module.
+
+-> vérifie que Docker est bien installé et démarré sur tous les servers déclarés dans le groupe "wrk" de l'inventaire.
+
+Différences entre module *command* et *shell* (https://blog.confirm.ch/ansible-modules-shell-vs-command/) :
+
+* shell : la commande est lancé au travers d'un shell, et donc les variables d'environnement de l'utilisateur sont chargés.
+* command : la commande n'est PAS exécutée via un shell. Les variables d'environnement de l'utilisateur ne sont donc pas chargées.
+
+shell lance les variables d'environnement de l'utilisateur avec lequel
+
+[TIP]
+====
+* on peut installer *figlet*, et éditer son .bashrc en ajoutant :
+
+----
+figlet $HOSTNAME
+# .bashrc
+----
+
+Cela permet d'avoir un message de connexion au lancement du bash, donnant le nom de la machine. +
+Exemple :
+
+----
+Last login: Tue Sep 10 15:32:21 2019
+                       _             _       _
+__   ___ __ ___       | |_ _ __ __ _(_)_ __ (_)_ __   __ _
+\ \ / / '_ ` _ \ _____| __| '__/ _` | | '_ \| | '_ \ / _` |
+ \ V /| | | | | |_____| |_| | | (_| | | | | | | | | | (_| |
+  \_/ |_| |_| |_|      \__|_|  \__,_|_|_| |_|_|_| |_|\__, |
+                                                     |___/
+[thomas@vm-training ~]$
+----
+====
+
+*Ansible Galaxy* est un repo de role pour Ansible. +
+On peut l'utiliser ainsi : +
+`ansible-galaxy init ROLE_NAME`
+
+Autres informations pour l'authentification sans password :
+
+* il faut ajouter son user dans /etc/sudoers
+* il faut enable dans /etc/sudoers l'option pour le groupe *wheel* : +
+----
+## Same thing without a password
+%wheel  ALL=(ALL)       NOPASSWD: ALL
+----
+* et il faut finalement ajouter son user au groupe wheel (https://www.digitalocean.com/community/tutorials/how-to-create-a-sudo-user-on-centos-quickstart) : +
+`usermod -aG wheel username`
+
+WARNING: la précédente manipulation ne semble pas fonctionner ?! +
+Il faut donc lancer le playbook avec l'option "-K"
+
+WARNING: On ne doit PAS mettre de "-" dans les noms de variables Ansible !
+
+
+
+Pour le partage de fichiers entre windows et CentOS
+1) installer les VirtualBox Guest Additions
+https://www.if-not-true-then-false.com/2010/install-virtualbox-guest-additions-on-fedora-centos-red-hat-rhel/
+2) suivre les infos de ce site
+https://serverfault.com/questions/674974/how-to-mount-a-virtualbox-shared-folder
+
+== Installation de l'environnement VM + Docker
+
+=== Installation de la VM
+
+Nous allons nous servir de l'hyperviseur VirtualBox, et installer une distribution CentOS.
+
+Prérequis :
+
+* Installez *VirtualBox* (https://www.virtualbox.org/) en suivant les instructions par défaut
+* téléchargez la distribution *CentOS*, une version 7 ou 8, à partir du site officiel : https://wiki.centos.org/Download
+
+TIP: Une version 7 "Minimal" est bien suffisante et prend moins de place 😉
+
+* Lancez VirtualBox, et commencez la création d'une nouvelle machine virtuelle en cliquant sur _"Nouvelle"_
+* écran _"Nom et système d'exploitation"_ : donnez un nom à la VM (_Centos7-docker-ansible_ par exemple), *modifiez le dossier où elle sera stockée*, et gardez les autres options (type "Linux" et version "Red Hat (64-bit")
++
+[NOTE]
+====
+Une VM peut vite prendre *beaucoup* de place... +
+Vérifiez que vous avez au minimum 20 Go de dispo dans le disque où vous allez la stocker
+====
+* écran _"Crée une machine virtuelle_ : affectez *4 Go* de mémoire vive.
+* écran _"Disque dur"_ : choisissez _"Créer un disque dur virtuel maintenant"_ +
+	** En type de disque dur, prenez _"VDI"_.
+	** Précisez ensuite que vous voulez que le fichier du disque dur virtuel soit _"Dynamiquement alloué"_
+	** Donnez une limite de taille de *20 Go* au disque dur virtuel
+
+Une fois la VM créée, sélectionnez-la dans VirtualBox et cliquez sur _"Configuration"_ :
+
+* Dans le menu _"Système"_, onglet _"Processeur"_, indiquez *2* processeurs.
+* Nous allons maintenant *permettre à la VM d'accéder à Internet*. +
+Pour ce faire, il faut lui ajouter une 2nd carte réseau qui va servir de "pont" avec la "vraie" carte réseau de votre PC.
+	** Dans le menu _"Réseau"_, changez le mode d'accès réseau de la 1ere carte (_"interface 1"_) en _"Réseau NAT"_. Le nom doit automatique être _"NatNetwork"_
+	** Ajouter une 2nd carte réseau via _"Activer l'interface réseau"_ dans _"Interface 2"_ +
+	Précisez _"Accès par pont"_ comme mode d'accès réseau. +
+	Le nom sélectionné doit correspondre à la carte réseau de votre PC (la "vraie") vous permettant d'aller sur Internet.
+
+* Pour préparer l'installation de la distribution CentOS, il faut simuler l'insertion du CD de la distro dans notre VM +
+	** Dans le menu _"Configuration"_, _"Stockage"_, sélectionnez le fichier de la distro (l'ISO téléchargée précédemment) comme CD du contrôleur IDE :
++
+image::virtualbox_choix-distro.jpg[]
+
+*Démarrer maintenant la VM* en cliquant sur _"Démarrer"_ (démarrage normal)
+
+==== Installation de la distribution CentOS
+
+.Remarques préalables
+[NOTE]
+====
+* Pour sortir de l'écran de la VM, appuyer sur la touche *CTRL droite*
+* Le *clavier chargé par défaut* est un *QWERTY*, pensez-y quand vous définirez pour la 1ere fois vos mots de passe... 😀
+====
+
+* *Choix de la langue et du clavier* : sélectionnez la langue que vous voulez, mais pour ajouter un nouveau clavier (comme l'AZERTY), l'écran étant buggé, il faut passer à l'écran suivant. +
+Cliquez sur _"Continue"_
+
+* Ecran _"Installation summary_ :
++
+NOTE: L'écran _"Installation summary"_ met un peu de temps à finir de se charger, donnez-lui donc 1 à 2 minutes avant de poursuivre les manipulations 😉
++
+	** Cliquez sur _"Keyboard"_ pour *ajouter un nouveau clavier* (pour avoir votre AZERTY pour les intéressés 😉) +
+	Validez avec _"Done"_, et, de retour sur l'écran "Installation summary", switchez de clavier en cliquant sur l’icône en haut à droite.
+	** Passer sur votre timezone dans _"Date & Time"_
++
+Lancez l'installation avec _"Begin Installation"_.
+
+* Définissez un utilisateur *root*, et un utilisateur classique.
+* Finalisez l'installation en cliquant sur _"Finish xxx"_
+
+==== Configuration de CentOS
+
+.
+[TIP]
+====
+* Une fois connecté avec votre utilisateur classique, vous pouvez passer en *clavier français* via la commande `localectl set-keymap fr`. +
+Cette commande nécessite d'être *root*, et, comme pour le moment votre compte n'est pas autorisé à devenir root avec `sudo`, vous devez changer d'utiliser pour passer root avec `su - root`
+
+* Plutôt que de vous servir du *terminal peu ergonomique* de VirtualBox, installez donc un *client SSH* plus agréable, comme celui intégré à l'excellent *MobaXterm* (https://mobaxterm.mobatek.net/).
+====
+
+Commençons par vérifier si la configuration réseau mise en place nous a bien permis de récupérer une adresse IP. +
+Lancez la commande `ip a`,
+
+Pour une raison parfaitement diabolique, vous devez lors de la configuration initiale rester avec 1 seule carte réseau, et ne PAS déclarer tout de suite une 2nd carte en bridge. +
+Après une 1ere connexion, faite un shutdown, et seulement à ce moment rajoutez cette 2nd carte en bridge. Relancez la VM, et, dès lors, la 2nd carte réseau (enp0s8) devrait avoir récupérée une IP lui permettant d'aller sur le Net. +
+Si vous déclarer 2 cartes réseau lors de la configuration initiale de la VM, la 2nd carte n'arrive jamais à récupérer une IP, même après plusieurs redémarrage. +
+-> Je suis INCAPABLE de dire (et comprendre !) pourquoi
+
+Afin de faciliter la communication entre l'OS host et l'OS de la VM (CentOS), nous allons créer des *dossiers partagés*, ce qui nécessite une manipulation particulière pour CentOS sur VirtualBox :
+	**
+
+
+
+
+

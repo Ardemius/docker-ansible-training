@@ -1,0 +1,25 @@
+- name: Ensure that docker is well installed
+  hosts: wrk
+  gather_facts: True
+  become: yes
+  tasks:
+    - name: Ensure that docker are well isntalled
+      yum:
+        name: docker-ce
+        enablerepo: docker-ce-stable
+        state: present
+    - name: Ensure that docker are well started
+      service:
+        name: docker
+        state: started
+
+- name: Ensure that postgre is well installed
+  hosts: wrk2
+  gather_facts: True
+  become: yes
+  tasks:
+    - name: Ensure that postgre are well isntalled
+      yum:
+        name: postgresql.x86_64 
+        state: present
+

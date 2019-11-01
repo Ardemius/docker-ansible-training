@@ -1,0 +1,45 @@
+---
+# tasks file for role_docker
+- block:
+  - name: Install required packages for Docker-ce
+    yum:
+      name: "{{ item }}"
+      state: present
+    loop:
+      - yum-utils
+      - device-mapper-persistent-data
+      - lvm2
+
+  - name: Set up the stable repository
+    yum_repository:
+      name: docker-ce-centos
+      description: Docker-ce repo
+      baseurl: https://download.docker.com/linux/centos/docker-ce.repo
+
+  - name: Install the latest version of Docker Engine
+    yum:
+      name: "{{ item }}"
+      state: present
+    loop:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+
+  - name: Ensure that the service docker is enabled
+    service:
+      name: docker
+      enabled: yes
+
+  - name: Ensure that the service docker is well started
+    service:
+      name: docker
+      state: started
+
+  become: yes
+
+
+
+
+
+
+
