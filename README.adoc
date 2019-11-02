@@ -266,12 +266,20 @@ Une fois la VM créée, sélectionnez-la dans VirtualBox et cliquez sur _"Config
 
 * Dans le menu _"Système"_, onglet _"Processeur"_, indiquez *2* processeurs.
 * Nous allons maintenant *permettre à la VM d'accéder à Internet*. +
-Pour ce faire, il faut lui ajouter une 2nd carte réseau qui va servir de "pont" avec la "vraie" carte réseau de votre PC.
-	** Dans le menu _"Réseau"_, changez le mode d'accès réseau de la 1ere carte (_"interface 1"_) en _"Réseau NAT"_. Le nom doit automatique être _"NatNetwork"_
-	** Ajouter une 2nd carte réseau via _"Activer l'interface réseau"_ dans _"Interface 2"_ +
-	Précisez _"Accès par pont"_ comme mode d'accès réseau. +
-	Le nom sélectionné doit correspondre à la carte réseau de votre PC (la "vraie") vous permettant d'aller sur Internet.
+Pour ce faire, il faut lui ajouter une 2nd carte réseau qui va servir de "pont" avec la "vraie" carte réseau de votre PC. +
+*NEANMOINS, NOUS N'ALLONS PAS LE FAIRE TOUT DE SUITE !*
++
+[WARNING]
+====
+Pour une raison parfaitement diabolique que je ne comprends pas, *vous devez lors de la configuration initiale rester avec 1 seule carte réseau*, et ne *PAS* déclarer tout de suite une 2nd carte en bridge. +
+Ce n'est seulement qu'*APRES une 1ere connexion* qu'il faudra faire un shutdown, et seulement à ce moment rajouter une 2nd carte en bridge.
 
+Si vous déclarez 2 cartes réseau lors de la configuration initiale de la VM, la 2nd carte n'arrivera jamais à récupérer une IP, même après plusieurs redémarrage. +
+-> Je suis INCAPABLE de dire (et comprendre !) pourquoi 😕
+
+Nous poursuivrons donc la configuration de l'accès Internet après une 1ere connexion à la VM.
+====
++
 * Pour préparer l'installation de la distribution CentOS, il faut simuler l'insertion du CD de la distro dans notre VM +
 	** Dans le menu _"Configuration"_, _"Stockage"_, sélectionnez le fichier de la distro (l'ISO téléchargée précédemment) comme CD du contrôleur IDE :
 +
@@ -281,15 +289,20 @@ image::virtualbox_choix-distro.jpg[]
 
 ==== Installation de la distribution CentOS
 
-.Remarques préalables
 [NOTE]
 ====
-* Pour sortir de l'écran de la VM, appuyer sur la touche *CTRL droite*
-* Le *clavier chargé par défaut* est un *QWERTY*, pensez-y quand vous définirez pour la 1ere fois vos mots de passe... 😀
+Pour sortir de l'écran de la VM, appuyez sur la touche *CTRL droite*
 ====
 
 * *Choix de la langue et du clavier* : sélectionnez la langue que vous voulez, mais pour ajouter un nouveau clavier (comme l'AZERTY), l'écran étant buggé, il faut passer à l'écran suivant. +
+Dans le cas présent, nous allons conserver une CentOS en anglais (_"English (United States)"_) +
 Cliquez sur _"Continue"_
++
+[NOTE]
+====
+Si vous choisissez le français comme langue, lors du passage à l'écran suivant, un clavier AZERTY sera automatiquement configuré, et la timezone pré-sélectionnée sera _"Europe/Paris"_ +
+Par contre, si vous souhaitez conserver une CentOS en anglais, votre clavier sera par défaut un QWERTY, n'oubliez donc pas de le modifier suivant vos préférences (et faites attention lors de la saisie du mot de passe ! 😀)
+====
 
 * Ecran _"Installation summary_ :
 +
@@ -298,35 +311,124 @@ NOTE: L'écran _"Installation summary"_ met un peu de temps à finir de se charg
 	** Cliquez sur _"Keyboard"_ pour *ajouter un nouveau clavier* (pour avoir votre AZERTY pour les intéressés 😉) +
 	Validez avec _"Done"_, et, de retour sur l'écran "Installation summary", switchez de clavier en cliquant sur l’icône en haut à droite.
 	** Passer sur votre timezone dans _"Date & Time"_
+  ** Cliquez sur _"Installation destination"_. Tout doit déjà être configuré par défaut, cliquez donc sur _"Done"_ pour accepter la configuration proposée.
 +
 Lancez l'installation avec _"Begin Installation"_.
 
-* Définissez un utilisateur *root*, et un utilisateur classique.
+* Définissez un utilisateur *root*, et un utilisateur *classique* (pour respectez les bonnes pratiques, ne le déclarez pas comme administrateur, il sera toujours possible de le faire plus tard).
 * Finalisez l'installation en cliquant sur _"Finish xxx"_
 
 ==== Configuration de CentOS
 
-.
+* Une fois connecté avec votre utilisateur classique, vous pouvez passer en *clavier français* via la commande `localectl set-keymap fr`. +
+Cette commande nécessite d'être *root*, et, comme pour le moment votre compte n'est pas autorisé à devenir root avec `sudo`, vous devez changer d'utilisateur pour passer root avec `su - root`
++
+image::centos_switch-keyboard-to-azerty.jpg[]
++
+[NOTE]
+====
+`su - toto` : permet de switcher sur le user toto, ET, *via le "-"*, de charger également les variables d'environnement de toto.
+====
+
+* Du fait du problème détaillé précédemment, nous n'avons pas encore installé la 2nd carte réseau, et nous n'avons donc pas accès à Internet depuis la VM.
+  ** Observons déjà la configuration réseau actuelle, avec une seule carte réseau en _"NAT"_, à l'aide de la commande `ip a`:
++
+image::centos_ip-a-only-one-network-adapter.jpg[]
++
+-> On constate bien qu'aucune adresse IP n'a été récupérée par la 1ere carte réseau (enp0s3)
+  ** Nous allons maintenant éteindre la VM, afin de pouvoir modifier sa configuration et lui ajouter une nouvelle carte réseau. +
+  Pour arrêtez "proprement" la VM, exécutez la commande `shutdown -h now`
+  ** Retournez dans le menu _"Configuration"_ de la VM. +
+  Dans le menu _"Réseau"_, changez le mode d'accès réseau de la 1ere carte (_"interface 1"_) en _"Réseau NAT"_. Le nom doit automatiquent être _"NatNetwork"_.
+  ** Ajoutez une 2nd carte réseau via _"Activer l'interface réseau"_ dans _"Interface 2"_ +
+  Précisez _"Accès par pont"_ comme mode d'accès réseau. +
+  Le nom sélectionné doit correspondre à la carte réseau de votre PC (la "vraie") vous permettant d'aller sur Internet.
+  ** Rédémarrez la VM (démarrage normal). +
+  La 2nd carte réseau (enp0s8) devrait avoir récupérée une IP lui permettant d'aller sur le Net. +
+  Vous pouvez de nouveau le vérifier avec la commande `ip a`, ainsi qu'un `ping` sur URL extérieure :
++
+image::centos_2-network-adapters.jpg[]
++
+-> On voit que la 2nd carte réseau (enp0s8) a récupéré l'IP `192.168.0.26` lui permettant, grâce à sa configuration en pont, d'accéder à Internet au travers de la "vraie" carte réseau de votre PC.
+
+.Un terminal ergonomique pour vous faciliter la vie !
 [TIP]
 ====
-* Une fois connecté avec votre utilisateur classique, vous pouvez passer en *clavier français* via la commande `localectl set-keymap fr`. +
-Cette commande nécessite d'être *root*, et, comme pour le moment votre compte n'est pas autorisé à devenir root avec `sudo`, vous devez changer d'utiliser pour passer root avec `su - root`
+Maintenant que votre VM a récupéré une IP, il devient possible d'y accéder à l'aide d'un *client SSH*, ce qui vous permettra d'utiliser *un terminal plus ergonomique* que celui de VirtualBox. +
+Personnellement, je vous conseille l'excellent *MobaXterm* (https://mobaxterm.mobatek.net/) :
 
-* Plutôt que de vous servir du *terminal peu ergonomique* de VirtualBox, installez donc un *client SSH* plus agréable, comme celui intégré à l'excellent *MobaXterm* (https://mobaxterm.mobatek.net/).
+image::centos_mobaxterm-terminal.jpg[]
 ====
 
-Commençons par vérifier si la configuration réseau mise en place nous a bien permis de récupérer une adresse IP. +
-Lancez la commande `ip a`,
+* Afin de faciliter la communication entre l'OS host et l'OS de la VM (CentOS), nous allons créer des *dossiers partagés*, ce qui nécessite une manipulation particulière pour CentOS sur VirtualBox. +
+La procédure est en 2 étapes :
+  . installer les _"VirtualBox Guest Additions"_. +
+  Une explication détaillée est disponible ici : +
+  https://www.if-not-true-then-false.com/2010/install-virtualbox-guest-additions-on-fedora-centos-red-hat-rhel/
+{lb}
+  Voici les commandes à lancer pour une CentOS :
+    ** passez en root : `su -`
+    ** Make sure that you are running latest kernel : `yum update kernel*`
+    ** `reboot`
+    ** Mount _"VirtualBox Guest Additions"_ +
+    Click _"Devices"_ > _"Install Guest Additions..."_ on VirtualBox +
+    image:virtualbox_install-virtualbox-guest-additions_01.jpg[]
+    ** Mount VirtualBox Guest Additions device:
++
+----
+su -
+mkdir /media/VirtualBoxGuestAdditions
+mount -r /dev/cdrom /media/VirtualBoxGuestAdditions
+----
++
+image:virtualbox_install-virtualbox-guest-additions_02.jpg[]
 
-Pour une raison parfaitement diabolique, vous devez lors de la configuration initiale rester avec 1 seule carte réseau, et ne PAS déclarer tout de suite une 2nd carte en bridge. +
-Après une 1ere connexion, faite un shutdown, et seulement à ce moment rajoutez cette 2nd carte en bridge. Relancez la VM, et, dès lors, la 2nd carte réseau (enp0s8) devrait avoir récupérée une IP lui permettant d'aller sur le Net. +
-Si vous déclarer 2 cartes réseau lors de la configuration initiale de la VM, la 2nd carte n'arrive jamais à récupérer une IP, même après plusieurs redémarrage. +
--> Je suis INCAPABLE de dire (et comprendre !) pourquoi
+    ** On CentOS/Red Hat (RHEL) 8/7/6/5, EPEL repo is needed, so install the following packages:
++
+----
+## CentOS 7 and Red Hat (RHEL) 7 ##
+rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 
-Afin de faciliter la communication entre l'OS host et l'OS de la VM (CentOS), nous allons créer des *dossiers partagés*, ce qui nécessite une manipulation particulière pour CentOS sur VirtualBox :
-	**
+## CentOS/RHEL 8/7/6/5 ##
+yum install gcc kernel-devel kernel-headers dkms make bzip2 perl
+----
+    ** Add `KERN_DIR` environment variable
++
+----
+## Current running kernel on Fedora 31/30/29/28/27/26/25/24, CentOS 8/7/6 and Red Hat (RHEL) 8/7/6 ##
+KERN_DIR=/usr/src/kernels/`uname -r`
 
+## Export KERN_DIR ##
+export KERN_DIR
+----
+    ** Install Guest Additions
++
+----
+cd /media/VirtualBoxGuestAdditions
 
-
-
-
+# Then run following command
+./VBoxLinuxAdditions.run
+----
+    ** `reboot`
+  . Il faut maintenant déclarer dans VirtualBox quel dossier vous souhaitez partager, puis monter ce dernier dans CentOs. +
+  L'article suivant détaille la procédure : +
+  https://serverfault.com/questions/674974/how-to-mount-a-virtualbox-shared-folder
+  Voici le détail des étapes :
+    ** Dans VirtualBox, menu _"Configuration"_ > _"Shared Folders"_, ajoutez votre dossier partagé, en *configuration permanente* :
++
+image::virtualbox_add-shared-folder.jpg[]
+-> Notez bien le "Nom du dossier" que vous avez indiqué (_"docker-ansible-training"_ dans mon cas). C'est ce dernier que vous allez devoir utiliser pour le montage dans CentOS.
+    ** Dans CentOS, créez le répertoire dans lequel vous allez monter votre dossier partagé, par exemple `/share` :
++
+----
+su -
+mkdir /share
+----
+    ** Montez maintenant le dossier partagé :
++
+----
+mount -t vboxsf docker-ansible-training /share/
+----
+    ** Et ça marche ! 😃😃😃
++
+image::centos_mount-shared-folder-successful.jpg[]
