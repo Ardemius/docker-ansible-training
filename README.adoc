@@ -235,18 +235,20 @@ https://www.if-not-true-then-false.com/2010/install-virtualbox-guest-additions-o
 2) suivre les infos de ce site
 https://serverfault.com/questions/674974/how-to-mount-a-virtualbox-shared-folder
 
-== Installation de l'environnement VM + Docker
+== Installation de l'environnement VM + Docker + Ansible
 
 === Installation de la VM
 
-Nous allons nous servir de l'hyperviseur VirtualBox, et installer une distribution CentOS.
+Nous allons nous servir de l'hyperviseur *VirtualBox*, et installer une distribution *CentOS*.
 
-Prérequis :
+==== Prérequis
 
 * Installez *VirtualBox* (https://www.virtualbox.org/) en suivant les instructions par défaut
 * téléchargez la distribution *CentOS*, une version 7 ou 8, à partir du site officiel : https://wiki.centos.org/Download
 
 TIP: Une version 7 "Minimal" est bien suffisante et prend moins de place 😉
+
+==== Création de la VM avec VirtualBox
 
 * Lancez VirtualBox, et commencez la création d'une nouvelle machine virtuelle en cliquant sur _"Nouvelle"_
 * écran _"Nom et système d'exploitation"_ : donnez un nom à la VM (_Centos7-docker-ansible_ par exemple), *modifiez le dossier où elle sera stockée*, et gardez les autres options (type "Linux" et version "Red Hat (64-bit")
@@ -266,8 +268,8 @@ Une fois la VM créée, sélectionnez-la dans VirtualBox et cliquez sur _"Config
 
 * Dans le menu _"Système"_, onglet _"Processeur"_, indiquez *2* processeurs.
 * Nous allons maintenant *permettre à la VM d'accéder à Internet*. +
-Pour ce faire, il faut lui ajouter une 2nd carte réseau qui va servir de "pont" avec la "vraie" carte réseau de votre PC. +
-*NEANMOINS, NOUS N'ALLONS PAS LE FAIRE TOUT DE SUITE !*
+Pour ce faire, il faut lui ajouter une *2nd carte réseau* qui va servir de *"pont"* avec la "vraie" carte réseau de votre PC. +
+⚠️*NEANMOINS, NOUS N'ALLONS PAS LE FAIRE TOUT DE SUITE !*⚠️
 +
 [WARNING]
 ====
